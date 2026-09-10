@@ -1,18 +1,44 @@
 #include <Arduino.h>
-
-// put function declarations here:
-int myFunction(int, int);
-
+#include "uartStdio.h"
+#include "ledClass.h"
+// Created the led
+Led led(12);
+// Redirected the stream and wrote the starting message
 void setup() {
-  // put your setup code here, to run once:
-  int result = myFunction(2, 3);
+  uart_stdio_init();
+  printf("Initializat\n");
+  printf("Comenzi disponibile: led on / led off\n");
 }
-
+// Took in from keyboard
+// Format and remove any unneded characters
+// Turn led on/off
 void loop() {
-  // put your main code here, to run repeatedly:
-}
-
-// put function definitions here:
-int myFunction(int x, int y) {
-  return x + y;
+  char comanda[20];
+  scanf("%19[^\r\n]",comanda);
+  int c;
+  while ((c = getchar()) != '\n' && c != '\r' && c != EOF)
+  {
+  }
+  int len = strlen(comanda);
+  if (len > 0 && (comanda[len-1] == '\r' || comanda[len-1] == '\n'))
+  {
+    comanda[len-1] = '\0';
+  }
+  for (int j = 0; comanda[j]; j++)
+  {
+    comanda[j] = tolower(comanda[j]);
+  }
+  if(strcmp(comanda,"led on") == 0)
+  {
+    led.turnOn();
+    printf("Led pornit \n");
+  }
+  else if(strcmp(comanda,"led off") == 0)
+  {
+    led.turnOff();
+    printf("Led oprit\n");
+  }
+  else {
+    printf("Comanda invalida\n");
+  }
 }
