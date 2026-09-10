@@ -4,7 +4,6 @@ LiquidCrystal* Lcd::lcdDriver = nullptr;
 FILE* Lcd::fileStream = nullptr;
 int Lcd::currentRow = 0;
 int Lcd::currentCol = 0;
-
 //LCD class construction, creates the LiquidCrystal object
 Lcd::Lcd(int rs,int enable,int d4, int d5, int d6, int d7)
 {
@@ -15,7 +14,7 @@ Lcd::Lcd(int rs,int enable,int d4, int d5, int d6, int d7)
 void Lcd::begin()
 {
   Lcd::fileStream = new FILE;
-  Lcd::lcdDriver->begin(16,2);
+  Lcd::lcdDriver->begin(Lcd::screenLength,Lcd::screenHeight);
   fdev_setup_stream(Lcd::fileStream,Lcd::writeChar,NULL,_FDEV_SETUP_WRITE);
   stdout = Lcd::fileStream;
 }
@@ -26,10 +25,10 @@ int Lcd::writeChar(char c, FILE *stream)
 {
   if(c != '\n')
   {
-    if(Lcd::currentCol == 15)
+    if(Lcd::currentCol == Lcd::screenLength)
     {
       Lcd::currentRow += 1;
-      Lcd::currentRow = Lcd::currentRow % 2;
+      Lcd::currentRow = Lcd::currentRow % Lcd::screenHeight;
       Lcd::currentCol = 0;
       Lcd::lcdDriver->setCursor(Lcd::currentCol,Lcd::currentRow);
     }
@@ -39,7 +38,7 @@ int Lcd::writeChar(char c, FILE *stream)
   if(c == '\n')
   {
     Lcd::currentRow += 1;
-    Lcd::currentRow = Lcd::currentRow % 2;
+    Lcd::currentRow = Lcd::currentRow % Lcd::screenHeight;
     Lcd::currentCol = 0;
     Lcd::lcdDriver->setCursor(Lcd::currentCol,Lcd::currentRow);
   }

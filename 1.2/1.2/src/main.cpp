@@ -41,6 +41,11 @@ void loop() {
       ledGreen.turnOff();
       lcd.clearScreen();
       codeIndex = 0;
+      for (int i = 0; i < 5; i++)
+      {
+        enteredCode[i] = '\0';
+      }
+      
       printf("Introdu codul \n");
       
     } else 

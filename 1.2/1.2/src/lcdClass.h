@@ -18,6 +18,8 @@ class Lcd {
     static FILE* fileStream;
     static int currentRow;
     static int currentCol;
+    static constexpr int screenLength = 16;
+    static constexpr int screenHeight = 2;
 
 
 };
