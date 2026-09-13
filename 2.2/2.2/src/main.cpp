@@ -57,11 +57,11 @@ void vTask2(void *pvParameters)
       N += 1;
       for (uint8_t i = 1; i <= N; i++)
       {
-        xQueueSend(xByteQueue, &i,portMAX_DELAY );
+        xQueueSendToFront(xByteQueue, &i,portMAX_DELAY );
         vTaskDelay(pdMS_TO_TICKS(50));
       }
       uint8_t terminator = 0;
-      xQueueSend(xByteQueue, &terminator, portMAX_DELAY);
+      xQueueSendToFront(xByteQueue, &terminator, portMAX_DELAY);
       for (int i = 0; i < N; i++)
       {
         led.turnOn();
