@@ -29,17 +29,21 @@ void vTask1Led(void *pvParameters)
   button.begin();
 
   unsigned long ledTimer = 0;
+  bool waitingForOff = false; 
   for (;;)
   { 
     button.update();
-    if (button.wasPressed() && !led.isOn() && !ledBusy)
+    if (button.wasPressed() && !waitingForOff && !ledBusy)
     {
       led.turnOn();
       ledTimer = millis();
+      waitingForOff = true;
     }
-    if(led.isOn() && (millis() - ledTimer) >= 1000)
+    if(waitingForOff && (millis() - ledTimer) >= 1000)
     {
       led.turnOff();
+      waitingForOff = false;
+      ledBusy = true;
       xSemaphoreGive(xBinSem);
     }
     xTaskDelayUntil(&lastWakeTime,period);
@@ -53,15 +57,14 @@ void vTask2(void *pvParameters)
   { 
     if (xSemaphoreTake(xBinSem,portMAX_DELAY) == pdTRUE)
     {
-      ledBusy = true;
       N += 1;
       for (uint8_t i = 1; i <= N; i++)
       {
-        xQueueSendToFront(xByteQueue, &i,portMAX_DELAY );
-        vTaskDelay(pdMS_TO_TICKS(50));
+        xQueueSendToBack(xByteQueue, &i,portMAX_DELAY );
+        vTaskDelay(pdMS_TO_TICKS(TASK2_REC));
       }
       uint8_t terminator = 0;
-      xQueueSendToFront(xByteQueue, &terminator, portMAX_DELAY);
+      xQueueSendToBack(xByteQueue, &terminator, portMAX_DELAY);
       for (int i = 0; i < N; i++)
       {
         led.turnOn();
