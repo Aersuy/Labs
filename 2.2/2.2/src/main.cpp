@@ -5,27 +5,32 @@
 #include "Button.h"
 #include <semphr.h>
 
-#define TASK1_OFFSET 0
-#define TASK2_OFFSET 3
-#define TASK3_OFFSET 8
+constexpr uint16_t task1Offset = 0;
+constexpr uint16_t task3Offset = 8;
 
-#define TASK1_REC 10
-#define TASK2_REC 50
-#define TASK2_REC_LED_ON 300
-#define TASK2_REC_LED_OFF 500
-#define TASK3_REC 200
+constexpr uint16_t task1Rec = 10;
+constexpr uint16_t task2Rec = 50;
+constexpr uint16_t task2LedOn = 300;
+constexpr uint16_t task2LedOff = 500;
+constexpr uint16_t task3Rec = 200;
+
+constexpr uint16_t buttonDebounceTime = 10;
+constexpr uint16_t task1LedHold = 1000;
+constexpr uint16_t taskStackSize = 128;
 
 SemaphoreHandle_t xBinSem;
 QueueHandle_t xByteQueue;
 Led led(13);
 volatile bool ledBusy = false;
+
+
 void vTask1Led(void *pvParameters)
 {
-  vTaskDelay(pdMS_TO_TICKS(TASK1_OFFSET));
+  vTaskDelay(pdMS_TO_TICKS(task1Offset));
   TickType_t lastWakeTime = xTaskGetTickCount();
-  const TickType_t period  = pdMS_TO_TICKS(TASK1_REC);
+  const TickType_t period  = pdMS_TO_TICKS(task1Rec);
   
-  Button button(7,10); // pin 7, 10 ms debounce to match task
+  Button button(7,buttonDebounceTime);
   button.begin();
 
   unsigned long ledTimer = 0;
@@ -39,7 +44,7 @@ void vTask1Led(void *pvParameters)
       ledTimer = millis();
       waitingForOff = true;
     }
-    if(waitingForOff && (millis() - ledTimer) >= 1000)
+    if(waitingForOff && (millis() - ledTimer) >= task1LedHold)
     {
       led.turnOff();
       waitingForOff = false;
@@ -51,7 +56,6 @@ void vTask1Led(void *pvParameters)
 }
 void vTask2(void *pvParameters)
 {
-  vTaskDelay(pdMS_TO_TICKS(TASK2_OFFSET));
   int N = 0;
   for (;;)
   { 
@@ -61,16 +65,16 @@ void vTask2(void *pvParameters)
       for (uint8_t i = 1; i <= N; i++)
       {
         xQueueSendToBack(xByteQueue, &i,portMAX_DELAY );
-        vTaskDelay(pdMS_TO_TICKS(TASK2_REC));
+        vTaskDelay(pdMS_TO_TICKS(task2Rec));
       }
       uint8_t terminator = 0;
       xQueueSendToBack(xByteQueue, &terminator, portMAX_DELAY);
       for (int i = 0; i < N; i++)
       {
         led.turnOn();
-        vTaskDelay(pdMS_TO_TICKS(TASK2_REC_LED_ON));
+        vTaskDelay(pdMS_TO_TICKS(task2LedOn));
         led.turnOff();
-        vTaskDelay(pdMS_TO_TICKS(TASK2_REC_LED_OFF));
+        vTaskDelay(pdMS_TO_TICKS(task2LedOff));
       }
       ledBusy = false;
     }
@@ -78,9 +82,9 @@ void vTask2(void *pvParameters)
 }
 void vTask3(void *pvParameters)
 {
-  vTaskDelay(pdMS_TO_TICKS(TASK3_OFFSET));
+  vTaskDelay(pdMS_TO_TICKS(task3Offset));
   TickType_t lastWakeTime = xTaskGetTickCount();
-  const TickType_t period  = pdMS_TO_TICKS(TASK3_REC);
+  const TickType_t period  = pdMS_TO_TICKS(task3Rec);
   for (;;)
   {
     uint8_t b;
@@ -92,7 +96,6 @@ void vTask3(void *pvParameters)
         continue;
       }
       printf("%d ",b);
-
     }
     xTaskDelayUntil(&lastWakeTime,period);
   }  
@@ -100,21 +103,24 @@ void vTask3(void *pvParameters)
 
 
 void setup() {
-  rtosUartStdioInit();
 
+  rtosUartStdioInit();
   led.begin();
 
   xBinSem = xSemaphoreCreateBinary();
   xByteQueue = xQueueCreate(20,sizeof(uint8_t));
-  
-  xTaskCreate(vTask1Led,"Task1",128,NULL,1,NULL);
-  xTaskCreate(vTask2,"Task2",128,NULL,1,NULL);
-  xTaskCreate(vTask3,"Task3",128,NULL,1,NULL);
 
+  if (xBinSem == NULL || xByteQueue == NULL)
+  {
+    printf("Something went wrong");
+  }
+  
+  xTaskCreate(vTask1Led,"Task1",taskStackSize,NULL,1,NULL);
+  xTaskCreate(vTask2,"Task2",taskStackSize,NULL,1,NULL);
+  xTaskCreate(vTask3,"Task3",taskStackSize,NULL,1,NULL);
   vTaskStartScheduler();
 }
 
 void loop() {
- 
 }
 

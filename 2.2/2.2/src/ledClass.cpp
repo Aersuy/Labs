@@ -13,7 +13,7 @@ void Led::begin()
   digitalWrite(this->memberPin,LOW);
 }
 //Checks if the led is on
-bool Led::isOn()
+bool Led::isOn() const
 {
   return this->state;
 }

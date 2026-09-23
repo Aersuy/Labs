@@ -10,7 +10,7 @@ class Led {
     void turnOn();
     void turnOff();
     void toggle();
-    bool isOn();
+    bool isOn() const;
   private:
     int memberPin;
     bool state;

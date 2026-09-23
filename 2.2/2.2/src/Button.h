@@ -7,7 +7,7 @@ public:
   Button(int pin, unsigned long debounceDelay = 20);
   void begin();
   void update();
-  bool wasPressed();
+  bool wasPressed() const;
 private:
   bool state;
   bool lastState;

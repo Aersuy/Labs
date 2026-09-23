@@ -47,7 +47,7 @@ void Button::update()
 //button.update();
 //if(button.wasPressed())
 //doSomething()
-bool Button::wasPressed()
+bool Button::wasPressed() const
 {
   return this->pressed;
 }
