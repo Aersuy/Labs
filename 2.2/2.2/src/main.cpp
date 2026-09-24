@@ -25,6 +25,7 @@ constexpr uint16_t taskStackSize = 128;
 SemaphoreHandle_t xBinSem;
 QueueHandle_t xByteQueue;
 Led led(13);
+Led led2(12);
 volatile bool ledBusy = false;
 
 //
@@ -95,9 +96,9 @@ void vTask2(void *pvParameters)
       xQueueSendToBack(xByteQueue, &terminator, portMAX_DELAY);
       for (int i = 0; i < N; i++)
       {
-        led.turnOn();
+        led2.turnOn();
         vTaskDelay(pdMS_TO_TICKS(task2LedOn));
-        led.turnOff();
+        led2turnOff();
         vTaskDelay(pdMS_TO_TICKS(task2LedOff));
       }
       ledBusy = false;
