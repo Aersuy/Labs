@@ -4,13 +4,13 @@ static FILE uartOut;
 static FILE uartIn;
 
 
-//Functie pentru redirectionarea stdout
+// Callback for stdout
 int uartPutchar(char c, FILE *stream)
 {
   Serial.write(c);
   return 0;
 }
-//Functie pentru redirectionarea stdin
+// Callback for stdin
 int uartGetchar(FILE *stream)
 {
   while(!Serial.available())
@@ -20,7 +20,7 @@ int uartGetchar(FILE *stream)
   return Serial.read();
 }
 
-//Functia ce efectueaza redirectionarea
+// function that does the redirect
 void uartStdioInit()
 {
     Serial.begin(9600);
@@ -32,11 +32,13 @@ void uartStdioInit()
     stdin = &uartIn;
 }
 
-/// RTOS FUNCTIONALITY
+/// RTOS Object names
 static FILE rtosUartStream;
 static QueueHandle_t xUartTxQueue = NULL;
 static QueueHandle_t xUartRxQueue = NULL;
 
+// The output task that reads from the Tx Queue
+// and sends to the Rx queue
 static void uartTask(void *pvParameters)
 {
   char c;
@@ -55,7 +57,9 @@ static void uartTask(void *pvParameters)
     vTaskDelay(pdMS_TO_TICKS(2));
   }
 }
-
+// the main init for the stdio redirects for RTOS
+// it creates the 2 queue's, redirects stdout and creates 
+// the task
 void rtosUartStdioInit(int baud,
                         UBaseType_t uartTaskPriority,
                         UBaseType_t queueLength)
@@ -70,11 +74,13 @@ void rtosUartStdioInit(int baud,
   stdin  = &rtosUartStream;
    xTaskCreate(uartTask, "UART", 128, NULL, uartTaskPriority, NULL);
 }
+// the RTOS callback that sends to the Tx Queue
 int rtosUartPutchar(char c, FILE *stream)
 {
   xQueueSend(xUartTxQueue,&c,pdMS_TO_TICKS(10));
   return 0;
 }
+// the RTOS callaback that takes from the RxQueue
 int rtosUartGetchar(FILE *stream)
 {
   char c;
