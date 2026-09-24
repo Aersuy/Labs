@@ -98,7 +98,7 @@ void vTask2(void *pvParameters)
       {
         led2.turnOn();
         vTaskDelay(pdMS_TO_TICKS(task2LedOn));
-        led2turnOff();
+        led2.turnOff();
         vTaskDelay(pdMS_TO_TICKS(task2LedOff));
       }
       ledBusy = false;
@@ -141,6 +141,7 @@ void setup() {
 
   rtosUartStdioInit();
   led.begin();
+  led2.begin();
 
   xBinSem = xSemaphoreCreateBinary();
   xByteQueue = xQueueCreate(20,sizeof(uint8_t));
