@@ -13,7 +13,7 @@ Keypad4x4::Keypad4x4(byte rowPins[4],byte colPins[4])
   this->keypadInstance = new Keypad(makeKeymap(keysMap),&rowPins[0],&colPins[0],4,4);
 }
 //Gets the currently pressed key
-char Keypad4x4::getKey()
+char Keypad4x4::getKey() const
 {
   return this->keypadInstance->getKey();
 }

@@ -7,7 +7,7 @@
 class Keypad4x4 {
   public:
     Keypad4x4(byte rowPins[4],byte colPins[4]);
-    char getKey();
+    char getKey() const;
 
   private:
     Keypad* keypadInstance;
