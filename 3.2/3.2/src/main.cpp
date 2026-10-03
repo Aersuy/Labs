@@ -77,6 +77,7 @@ void setup() {
     lightBuf.init();
     tempSignal.signalInit();
     lightSignal.signalInit();
+    rtosUartStdioInit();
     xTaskCreate(vTask1GetData,   "Acquire",   128, NULL, 1, NULL);
     xTaskCreate(vTask2Condition, "Condition", 384, NULL, 1, NULL);
     xTaskCreate(vTask3Report,    "Report",    128, NULL, 1, NULL);

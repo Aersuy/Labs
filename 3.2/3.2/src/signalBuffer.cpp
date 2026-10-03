@@ -29,10 +29,11 @@ void SignalBuffer::pushSample(int sample)
 }
 void SignalBuffer::copyOut(int *dest, size_t n)
 {
-    xSemaphoreTake(this->mutex, portMAX_DELAY);
+     xSemaphoreTake(this->mutex, portMAX_DELAY);
     for (size_t i = 0; i < n; i++)
     {
-        dest[i] = this->samples[i];
+        size_t src = (this->index + i) % this->size;
+        dest[i] = this->samples[src];
     }
     xSemaphoreGive(this->mutex);
 }
