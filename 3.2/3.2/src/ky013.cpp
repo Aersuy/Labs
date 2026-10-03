@@ -20,7 +20,7 @@ float ky013::readKelvin()
     if (raw <= 0.0)     raw = 1.0;
 
 
-    float r = R_FIXED * (ADC_MAX / (raw - 1.0)); // Get the resistence of the thermoresistor
+    float  r = R_FIXED * (ADC_MAX / raw - 1.0); // Get the resistence of the thermoresistor
     return 1.0 / (1.0/T0 + (1.0/B) * log(r / R0)); // use the beta equation to calculate temp
 }
 float ky013::readCelcius()

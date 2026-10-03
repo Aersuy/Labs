@@ -33,7 +33,7 @@ void vTask2Report(void *pvParameters)
         float temp = snap.getValue();
         int whole = (int)temp;
         int frac = abs((int)(temp * 10)) % 10;
-        printf("Temp: %d.%d C | Status: %s | Samples: %u\r\n",
+        printf("Temp: %d.%d C | Status: %s\r\n",
         whole, frac, signalStatusStr(snap.getStatus()));
         vTaskDelayUntil(&lastWake, pdMS_TO_TICKS(task2Rec));
     }
