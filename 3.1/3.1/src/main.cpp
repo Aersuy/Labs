@@ -2,14 +2,21 @@
 #include "uartStdio.h"
 #include "ky013.h"
 #include "signal.h"
+
+// Create task constants
 constexpr uint16_t task1ffset = 0;
 constexpr uint16_t task2ffset = 3;
 
 constexpr uint16_t task1Rec = 10;
 constexpr uint16_t task2Rec = 500;
 
+// Create objects
 ky013 sensor(A0);
 Signal signals;
+
+
+
+// First task used for getting the data, gets the read in celcius
 void vTask1GetData(void *pvParameters)
 {
     vTaskDelay(pdMS_TO_TICKS(task1ffset));
@@ -22,6 +29,8 @@ void vTask1GetData(void *pvParameters)
         vTaskDelayUntil(&lastWake, pdMS_TO_TICKS(task1Rec));
     }
 }
+
+// Second task for reporting the data to the user
 void vTask2Report(void *pvParameters)
 {
     vTaskDelay(pdMS_TO_TICKS(task2ffset));
@@ -33,13 +42,15 @@ void vTask2Report(void *pvParameters)
         float temp = snap.getValue();
         int whole = (int)temp;
         int frac = abs((int)(temp * 10)) % 10;
-        printf("Temp: %d.%d C | Status: %s\r\n",
+        printf("Temp: %d.%d C | Status: %s | Samples: %u\r\n",
         whole, frac, signalStatusStr(snap.getStatus()));
         vTaskDelayUntil(&lastWake, pdMS_TO_TICKS(task2Rec));
     }
 }
 
 void setup() {
+    Serial.begin(9600);
+    Serial.println("BOOT OK");
     rtosUartStdioInit();
     sensor.ky013Init();
     signals.signalInit();
