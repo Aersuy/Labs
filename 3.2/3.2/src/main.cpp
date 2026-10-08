@@ -5,7 +5,7 @@
 #include "signal.h"
 #include "signalBuffer.h"
 #include "conditioner.h"
-
+#include "ky037.h"
 
 // Create the offsets for the tasks
 constexpr uint16_t task1ffset = 0;
@@ -21,11 +21,14 @@ constexpr uint16_t task2Rec = 500;
 ky013 tempSensor(A0);
 ky018 lightSensor(A1);
 
+
 SignalBuffer tempBuf(50);
 SignalBuffer lightBuf(50);
 
+
 Signal tempSignal;
 Signal lightSignal;
+
 
 Conditioner conditioner;
 SemaphoreHandle_t reportReady;
@@ -37,11 +40,11 @@ void vTask1GetData(void *pvParameters)
     TickType_t lastWake = xTaskGetTickCount();
     for (;;)
     {
-
         // getting the raw sensor data and adding it to
         // the buffer
-        tempBuf.pushSample(tempSensor.readRaw());
+        // tempBuf.pushSample(tempSensor.readRaw());
         lightBuf.pushSample(lightSensor.readRaw());
+
         vTaskDelayUntil(&lastWake, pdMS_TO_TICKS(task1Rec));
     }
 }
@@ -56,13 +59,22 @@ void vTask2Condition(void *pvParameters)
     TickType_t lastWake = xTaskGetTickCount();
     int tempRaw[50];
     int lightRaw[50];
+    int soundRaw[50];
     for (;;)
     {
         tempBuf.copyOut(tempRaw, 50);
         lightBuf.copyOut(lightRaw, 50);
 
+
+        conditioner.saltPepperFilter(tempRaw, 50);
+        conditioner.saltPepperFilter(lightRaw, 50);
+        conditioner.saltPepperFilter(soundRaw,50);
+
         float condTemp = conditioner.condition(tempRaw, 50);
         float condLight = conditioner.condition(lightRaw, 50);
+
+
+ 
 
         float tempC = tempSensor.rawToCelsius(condTemp);
         SensorStatus st = (tempC < -55.0 || tempC > 125.0) ? SENSOR_ERROR_RANGE : SENSOR_OK;
@@ -70,6 +82,8 @@ void vTask2Condition(void *pvParameters)
 
         float lightPct = (condLight / 1023.0) * 100.0;
         lightSignal.signalUpdate(lightPct, SENSOR_OK);
+
+        
 
         xSemaphoreGive(reportReady);
         vTaskDelayUntil(&lastWake, pdMS_TO_TICKS(task2Rec));
@@ -82,9 +96,10 @@ void vTask3Report(void *pvParameters)
     for (;;)
     {
         xSemaphoreTake(reportReady, portMAX_DELAY);
-        Signal tSnap, lSnap;
+        Signal tSnap, lSnap,sSnap;
         tempSignal.getSignals(&tSnap);
         lightSignal.getSignals(&lSnap);
+  
         printf("Temp: %d C | Light: %d%% | Status: %s\r\n",
                (int)tSnap.getValue(), (int)lSnap.getValue(), signalStatusStr(tSnap.getStatus()));
     }
