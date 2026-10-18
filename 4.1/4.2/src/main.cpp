@@ -124,12 +124,12 @@ static void cmdTask(void *pvParameters)
 
 void setup()
 {
-  rtosUartStdioInit(9600, tskIDLE_PRIORITY + 1, 24);
+  rtosUartStdioInit(9600, tskIDLE_PRIORITY + 3, 24);
 
   xRelayQueue = xQueueCreate(8, sizeof(RelayCommand));
 
-  xTaskCreate(cmdTask,   "CMD",   320, NULL, tskIDLE_PRIORITY + 2, NULL);
-  xTaskCreate(relayTask, "RELAY", 192, NULL, tskIDLE_PRIORITY + 3, NULL);
+  xTaskCreate(cmdTask,   "CMD",   320, NULL, tskIDLE_PRIORITY + 1, NULL);
+  xTaskCreate(relayTask, "RELAY", 192, NULL, tskIDLE_PRIORITY + 2, NULL);
   vTaskStartScheduler();
 }
 
