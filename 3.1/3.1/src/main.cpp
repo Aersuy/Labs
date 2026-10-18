@@ -49,15 +49,19 @@ void vTask2Report(void *pvParameters)
 }
 
 void setup() {
+    // start
     Serial.begin(9600);
     Serial.println("BOOT OK");
     rtosUartStdioInit();
     sensor.ky013Init();
     signals.signalInit();
 
+    // create the tasks
     xTaskCreate(vTask1GetData, "Acquire", 128, NULL, 1, NULL);
     xTaskCreate(vTask2Report,  "Report",  128, NULL, 1, NULL);
 
+
+    // 
     vTaskStartScheduler();
 }
 
