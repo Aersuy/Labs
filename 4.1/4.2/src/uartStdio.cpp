@@ -77,7 +77,7 @@ void rtosUartStdioInit(int baud,
 // the RTOS callback that sends to the Tx Queue
 int rtosUartPutchar(char c, FILE *stream)
 {
-  xQueueSend(xUartTxQueue,&c,portMAX_DELAY);
+  xQueueSend(xUartTxQueue,&c,pdMS_TO_TICKS(10));
   return 0;
 }
 // the RTOS callaback that takes from the RxQueue

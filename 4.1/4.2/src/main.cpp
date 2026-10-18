@@ -4,6 +4,7 @@
 #include <queue.h>
 #include <string.h>
 #include <ctype.h>
+#include <avr/pgmspace.h>
  
 #include "uartStdio.h"
 #include "binaryRelay.h"
@@ -40,7 +41,7 @@ static void readLine(char *buf, uint8_t len)
     if ((ch == 0x7F || ch == '\b') && i > 0)  
     {
       i--;
-      printf("\b \b");
+      printf_P(PSTR("\b \b"));
       continue;
     }
     if (i < len - 1 && isprint(ch))
@@ -66,15 +67,6 @@ static void format(char *s)
   *w = '\0';
 }
 
-static void printHelp()
-{
-  printf("Commands:\n");
-  printf("  relay on      - activate the actuator\n");
-  printf("  relay off     - deactivate the actuator\n");
-  printf("  relay toggle  - invert the state\n");
-  printf("  relay status  - report the current state\n");
-  printf("  help          - this list\n");
-}
 // Owns the Relay object: no other task touches the hardware
 static void relayTask(void *pvParameters)
 {
@@ -94,8 +86,8 @@ static void relayTask(void *pvParameters)
         case RELAY_CMD_STATUS: break;                
       }
 
-      if (!ok) printf("[relay] too soon, contact protection active\n");
-      printf("[relay] state: %s\n", relay.stateName());
+      if (!ok) printf_P(PSTR("[relay] too soon, contact protection active\n"));
+      printf_P(PSTR("[relay] state: %s\n"), relay.stateName());
      }
    }
 }
@@ -106,25 +98,23 @@ static void cmdTask(void *pvParameters)
   char line[CMD_BUF_LEN];
   RelayCommand cmd;
 
-  printf("\n=== Lab 4.1: binary actuator / relay control ===\n");
-  printHelp();
+  printf_P(PSTR("\n=== Lab 4.1: binary actuator / relay control ===\n"));
 
   for (;;)
   {
-    printf("> ");
+    printf_P(PSTR("> "));
     readLine(line, sizeof(line));
     format(line);
 
     if (line[0] == '\0') continue;                       // empty line
 
-    if      (!strcmp(line, "relay on"))     cmd = RELAY_CMD_ON;
-    else if (!strcmp(line, "relay off"))    cmd = RELAY_CMD_OFF;
-    else if (!strcmp(line, "relay toggle")) cmd = RELAY_CMD_TOGGLE;
-    else if (!strcmp(line, "relay status")) cmd = RELAY_CMD_STATUS;
-    else if (!strcmp(line, "help"))         { printHelp(); continue; }
+    if      (!strcmp_P(line, PSTR("relay on")))     cmd = RELAY_CMD_ON;
+    else if (!strcmp_P(line, PSTR("relay off")))    cmd = RELAY_CMD_OFF;
+    else if (!strcmp_P(line, PSTR("relay toggle"))) cmd = RELAY_CMD_TOGGLE;
+    else if (!strcmp_P(line, PSTR("relay status"))) cmd = RELAY_CMD_STATUS;
     else
     {
-      printf("[err] unknown command: \"%s\" (type help)\n", line);
+      printf_P(PSTR("[err] unknown command: \"%s\" \n"), line);
       continue;
     }
 
@@ -134,12 +124,12 @@ static void cmdTask(void *pvParameters)
 
 void setup()
 {
-  rtosUartStdioInit(9600, tskIDLE_PRIORITY + 1, 64);
+  rtosUartStdioInit(9600, tskIDLE_PRIORITY + 1, 24);
 
   xRelayQueue = xQueueCreate(8, sizeof(RelayCommand));
 
   xTaskCreate(cmdTask,   "CMD",   320, NULL, tskIDLE_PRIORITY + 2, NULL);
-  xTaskCreate(relayTask, "RELAY", 256, NULL, tskIDLE_PRIORITY + 3, NULL);
+  xTaskCreate(relayTask, "RELAY", 192, NULL, tskIDLE_PRIORITY + 3, NULL);
   vTaskStartScheduler();
 }
 
