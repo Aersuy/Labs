@@ -139,7 +139,7 @@ static void cmdTask(void *pvParameters)
     char line[CMD_BUF_LEN];
     MotorCommand cmd;
 
-    printf("\n=== Lab 4.2: DC motor control over L298 ===\n");
+    printf("\n=== Lab 4.2: DC motor control over L293D ===\n");
     printHelp();
 
     for (;;)

@@ -2,7 +2,7 @@
 #define MOTORDC_H
 
 #include <Arduino.h>
-#include "l298.h"
+#include "l293d.h"
 
 // driver de nivel mijlociu, lucrea
 class MotorDc {
@@ -28,7 +28,7 @@ class MotorDc {
     void applyPower();
     static uint8_t percentToDuty(int absolutePercent);
 
-    L298Channel channel;
+    L293DChannel channel;
     int power;              // percentage -100 % ---- 100 %
     int lastDirectionSign;  // +1 / -1,
 };

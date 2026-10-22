@@ -49,7 +49,7 @@ static void uartTask(void *pvParameters)
       if (c == '\n') Serial.write('\r');
       Serial.write(c);
     }
-    while (Serial.available())
+    while (Serial.available() && uxQueueSpacesAvailable(xUartRxQueue) > 0)
     {
       char rc = Serial.read();
       xQueueSend(xUartRxQueue,&rc,0);
@@ -72,7 +72,7 @@ void rtosUartStdioInit(int baud,
   fdev_setup_stream(&rtosUartStream, rtosUartPutchar, rtosUartGetchar, _FDEV_SETUP_RW);
   stdout = &rtosUartStream;
   stdin  = &rtosUartStream;
-   xTaskCreate(uartTask, "UART", 128, NULL, uartTaskPriority, NULL);
+   xTaskCreate(uartTask, "UART", 192, NULL, uartTaskPriority, NULL);
 }
 // the RTOS callback that sends to the Tx Queue
 int rtosUartPutchar(char c, FILE *stream)

@@ -18,7 +18,7 @@ void MotorDc::begin()
 
 uint8_t MotorDc::percentToDuty(int absolutePercent)
 {
-    long duty = ((long)absolutePercent * L298Channel::PWM_DUTY_MAX)
+    long duty = ((long)absolutePercent * L293DChannel::PWM_DUTY_MAX)
                 / MotorDc::POWER_MAX;
     return (uint8_t)duty;
 }
@@ -34,8 +34,8 @@ void MotorDc::applyPower()
         return;
     }
 
-    L298Direction direction = (this->power > 0) ? L298_DIR_FORWARD
-                                                : L298_DIR_BACKWARD;
+    L293DDirection direction = (this->power > 0) ? L293D_DIR_FORWARD
+                                                 : L293D_DIR_BACKWARD;
     this->lastDirectionSign = (this->power > 0) ? 1 : -1;
 
     this->channel.setDuty(0);

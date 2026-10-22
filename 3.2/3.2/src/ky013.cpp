@@ -2,7 +2,7 @@
 #include <math.h>   // log()
 
 
-// 
+//  
 static const float R_FIXED = 10000.0;  // divder resister
 static const float R0 = 10000.0;       // thermalresistor resistence at 25c
 static const float T0 = 298.15;        // 25°C kevin
