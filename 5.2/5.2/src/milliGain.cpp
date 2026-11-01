@@ -2,6 +2,9 @@
 
 // Keeps whole * MILLI_PER_UNIT inside int16_t.
 static const int16_t WHOLE_MAX = 32;
+// int16_t ceiling, spelled out so the parser does not depend on <stdint.h>
+// exposing the INT16_MAX macro.
+static const int32_t MILLI_TOTAL_MAX = 32767;
 static const char DECIMAL_SEPARATOR = '.';
 static const uint8_t FRACTION_DIGITS_MAX = 3;
 static const uint8_t UNSIGNED_DIGITS_MAX = 6;
@@ -68,7 +71,7 @@ bool parseMilliGain(const char *text, int16_t *out)
     if (!readFractionPart(&cursor, &thousandths)) return false;
 
     int32_t total = (int32_t)whole * MILLI_PER_UNIT + thousandths;
-    if (total > INT16_MAX) return false;
+    if (total > MILLI_TOTAL_MAX) return false;
 
     *out = (int16_t)total;
     return true;

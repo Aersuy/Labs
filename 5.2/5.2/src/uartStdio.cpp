@@ -60,7 +60,7 @@ static void uartTask(void *pvParameters)
 // the main init for the stdio redirects for RTOS
 // it creates the 2 queue's, redirects stdout and creates 
 // the task
-void rtosUartStdioInit(int baud,
+void rtosUartStdioInit(unsigned long baud,
                         UBaseType_t uartTaskPriority,
                         UBaseType_t queueLength)
 {

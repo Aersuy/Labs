@@ -58,12 +58,11 @@ class PidController {
     PidGains getGains() const;
     PidTerms getTerms() const;
     int16_t getSetPointDeciDeg() const;
-    int32_t getIntegralRaw() const;         // for the windup regression test
 
     static const int16_t GAIN_MILLI_MIN = 0;
-    // Not 32767: the worst-case intermediate kiMilli * error * samplePeriodMs
-    // is 20000 * 2700 * 20 = 1.08e9, which still fits int32_t. A larger
-    // ceiling would overflow the integral accumulation.
+    // Not 32767: kiMilli * error * samplePeriodMs must stay inside int32_t in
+    // accumulateIntegral(). The application pins that with a static_assert,
+    // because the bound depends on the control period it chooses.
     static const int16_t GAIN_MILLI_MAX = 20000;
     static const int32_t INTEGRAL_MILLI_MAX = 1000L * PER_MILLE_MAX;
 

@@ -20,29 +20,34 @@
 constexpr int POSITION_POT_PIN = A0;
 constexpr int MOTOR_IN1_PIN = 8;        // same wiring as lab 4.2
 constexpr int MOTOR_IN2_PIN = 7;
-constexpr int MOTOR_ENABLE_PIN = 9;     // PWM
+constexpr int MOTOR_ENABLE_PIN = 9;     // PWM, Timer2 on the Mega
 constexpr int FAULT_LED_PIN = 12;
 
-// The PID assumes a fixed dt; sensorTask's vTaskDelayUntil is what guarantees it.
-constexpr uint16_t CONTROL_PERIOD_MS = 20;      // 50 Hz
-constexpr uint16_t REPORT_PERIOD_MS = 100;      // 10 Hz, fine enough for the plotter
-constexpr uint8_t STATUS_DECIMATION = 5;        // status lines every 500 ms
-constexpr uint16_t FAULT_PERIOD_MS = 200;
-
-constexpr uint16_t SENSOR_START_OFFSET_MS = 3;
-constexpr uint16_t REPORT_START_OFFSET_MS = 7;
-constexpr uint16_t FAULT_START_OFFSET_MS = 11;
+// feilipu/FreeRTOS drives the AVR tick from the watchdog, so one tick is
+// portTICK_PERIOD_MS (16 ms - Atmel's "WDTO_15MS" is really 16.384 ms) and
+// every delay is quantised to it. The PID divides by its sample period, so
+// that period must be the one the task really achieves: it is declared in
+// ticks and the millisecond value is derived from it, never the other way
+// round. 2 ticks = 32 ms, about 31 Hz. The 2% between the nominal 16 ms and
+// the true 16.384 ms is absorbed into the hand-tuned gains.
+constexpr TickType_t CONTROL_PERIOD_TICKS = 2;
+constexpr TickType_t REPORT_PERIOD_TICKS = 6;       // ~96 ms, 10 Hz for the plotter
+constexpr TickType_t FAULT_PERIOD_TICKS = 13;       // ~208 ms
+constexpr uint16_t CONTROL_PERIOD_MS = CONTROL_PERIOD_TICKS * portTICK_PERIOD_MS;
+constexpr uint8_t STATUS_DECIMATION = 5;            // status lines every ~480 ms
 
 constexpr int16_t DEFAULT_SET_POINT_DECI_DEG = 1350;    // 135.0 deg, mid travel
 constexpr int16_t DEAD_BAND_DECI_DEG = 20;              // 2.0 deg
 
 constexpr uint8_t CMD_BUF_LEN = 32;
 constexpr uint8_t CONTROL_QUEUE_LEN = 8;
-constexpr int QUEUE_SEND_TIMEOUT_MS = 50;
+constexpr TickType_t QUEUE_SEND_TIMEOUT_TICKS = 3;
 
-// 9600 cannot carry 10 plot lines per second.
-constexpr int UART_BAUD = 115200;
-constexpr UBaseType_t UART_QUEUE_LEN = 64;
+// 9600 cannot carry 11 plot lines per second. The queue holds a whole status
+// line, so the control task never blocks on the UART mid-loop - that would
+// stretch the sample period the controller assumes is fixed.
+constexpr unsigned long UART_BAUD = 115200;
+constexpr UBaseType_t UART_QUEUE_LEN = 128;
 
 constexpr PidConfig PID_CONFIG = {
     POSITION_MIN_DECI_DEG,
@@ -53,6 +58,18 @@ constexpr PidConfig PID_CONFIG = {
 
 // Start P-only: the lab is tuned live from the console, term by term.
 constexpr PidGains DEFAULT_GAINS = { 5000, 0, 0 };
+
+// Guards the int32_t headroom in PidController::accumulateIntegral(), which
+// evaluates kiMilli * error * samplePeriodMs. Lengthening the control period
+// or raising the gain ceiling must not silently overflow it.
+static_assert((int64_t)PidController::GAIN_MILLI_MAX *
+                  POSITION_MAX_DECI_DEG * CONTROL_PERIOD_MS < 2147483647L,
+              "control period too long for the gain ceiling");
+
+// motorOutput is pure and cannot include the Arduino-dependent driver, so its
+// full-scale percent is pinned against the driver here instead.
+static_assert(MOTOR_MAX_PERCENT == MotorDc::POWER_MAX,
+              "motorOutput full scale must match the MotorDc driver");
 
 static PotPositionSensor positionSensor(POSITION_POT_PIN);
 static MotorDc motor(MOTOR_IN1_PIN, MOTOR_IN2_PIN, MOTOR_ENABLE_PIN);
@@ -231,6 +248,12 @@ static void applyLoopEnable(bool isEnabled, PidControlState *state)
     printf("[pid] bucla %s\n", isEnabled ? "activata" : "oprita");
 }
 
+static void applyStatusRequest(const PidControlState *state)
+{
+    printStatusLine(state);
+    printGains(&state->gains);
+}
+
 static void applyPidCommand(const PidCommand *command, PidControlState *state)
 {
     switch (command->type)
@@ -257,7 +280,7 @@ static void applyPidCommand(const PidCommand *command, PidControlState *state)
             applyLoopEnable(command->payload.value != 0, state);
             break;
         case PID_CMD_STATUS:
-            printStatusLine(state);
+            applyStatusRequest(state);
             break;
     }
 }
@@ -307,13 +330,16 @@ static bool hasCommandPrefix(const char *line, const char *prefix)
     return strncmp(line, prefix, length) == 0 && line[length] == ' ';
 }
 
-static bool sendValueCommand(PidCommandType type, int16_t value)
+static void submitCommand(PidCommandType type, int16_t value)
 {
     PidCommand command;
     command.type = type;
     command.payload.value = value;
-    return xQueueSend(xControlQueue, &command,
-                      pdMS_TO_TICKS(QUEUE_SEND_TIMEOUT_MS)) == pdPASS;
+
+    if (xQueueSend(xControlQueue, &command, QUEUE_SEND_TIMEOUT_TICKS) != pdPASS)
+    {
+        printf("[err] coada de comenzi plina, comanda ignorata\n");
+    }
 }
 
 // Numeric arguments are validated right where they enter the system, so the
@@ -329,7 +355,7 @@ static bool handleSetPointCommand(const char *line)
         printf("[err] valoare invalida: \"%s\"\n", argument);
         return true;
     }
-    sendValueCommand(PID_CMD_SET_POINT, value);
+    submitCommand(PID_CMD_SET_POINT, value);
     return true;
 }
 
@@ -345,7 +371,7 @@ static bool handleGainCommand(const char *line, const char *prefix,
         printf("[err] castig invalid: \"%s\"\n", argument);
         return true;
     }
-    sendValueCommand(type, value);
+    submitCommand(type, value);
     return true;
 }
 
@@ -365,13 +391,33 @@ static bool handlePlotCommand(const char *line)
     return true;
 }
 
-static bool handleWordCommand(const char *line)
+static bool handleKeywordCommand(const char *line)
 {
-    if (!strcmp(line, "status")) return sendValueCommand(PID_CMD_STATUS, 0), true;
-    if (!strcmp(line, "reset"))  return sendValueCommand(PID_CMD_RESET, 0), true;
-    if (!strcmp(line, "stop"))   return sendValueCommand(PID_CMD_LOOP_ENABLE, 0), true;
-    if (!strcmp(line, "run"))    return sendValueCommand(PID_CMD_LOOP_ENABLE, 1), true;
-    if (!strcmp(line, "help"))   return printHelp(), true;
+    if (!strcmp(line, "status"))
+    {
+        submitCommand(PID_CMD_STATUS, 0);
+        return true;
+    }
+    if (!strcmp(line, "reset"))
+    {
+        submitCommand(PID_CMD_RESET, 0);
+        return true;
+    }
+    if (!strcmp(line, "stop"))
+    {
+        submitCommand(PID_CMD_LOOP_ENABLE, 0);
+        return true;
+    }
+    if (!strcmp(line, "run"))
+    {
+        submitCommand(PID_CMD_LOOP_ENABLE, 1);
+        return true;
+    }
+    if (!strcmp(line, "help"))
+    {
+        printHelp();
+        return true;
+    }
     return false;
 }
 
@@ -382,7 +428,7 @@ static void dispatchCommand(const char *line)
     if (handleGainCommand(line, "ki", PID_CMD_KI)) return;
     if (handleGainCommand(line, "kd", PID_CMD_KD)) return;
     if (handlePlotCommand(line)) return;
-    if (handleWordCommand(line)) return;
+    if (handleKeywordCommand(line)) return;
 
     printf("[err] comanda necunoscuta: \"%s\" (scrie help)\n", line);
 }
@@ -395,15 +441,14 @@ static void sensorTask(void *pvParameters)
     command.type = PID_CMD_MEASUREMENT;
 
     positionSensor.begin();
-    vTaskDelay(pdMS_TO_TICKS(SENSOR_START_OFFSET_MS));
     TickType_t lastWake = xTaskGetTickCount();
 
     for (;;)
     {
         command.payload.sample = positionSensor.read();
-        xQueueSend(xControlQueue, &command, pdMS_TO_TICKS(QUEUE_SEND_TIMEOUT_MS));
+        xQueueSend(xControlQueue, &command, QUEUE_SEND_TIMEOUT_TICKS);
 
-        vTaskDelayUntil(&lastWake, pdMS_TO_TICKS(CONTROL_PERIOD_MS));
+        vTaskDelayUntil(&lastWake, CONTROL_PERIOD_TICKS);
     }
 }
 
@@ -443,26 +488,35 @@ static void cmdTask(void *pvParameters)
     }
 }
 
+static void reportOnce(const PidControlState *state, uint8_t *ticksSinceStatus)
+{
+    if (isPlotEnabled)
+    {
+        printPlotLine(state);
+        return;
+    }
+
+    (*ticksSinceStatus)++;
+    if (*ticksSinceStatus < STATUS_DECIMATION) return;
+
+    *ticksSinceStatus = 0;
+    printStatusLine(state);
+}
+
 static void reportTask(void *pvParameters)
 {
     PidControlState state;
     uint8_t ticksSinceStatus = 0;
 
-    vTaskDelay(pdMS_TO_TICKS(REPORT_START_OFFSET_MS));
     TickType_t lastWake = xTaskGetTickCount();
 
     for (;;)
     {
         if (pidControlStateRead(xStateMailbox, &state))
         {
-            if (isPlotEnabled) printPlotLine(&state);
-            else if (++ticksSinceStatus >= STATUS_DECIMATION)
-            {
-                ticksSinceStatus = 0;
-                printStatusLine(&state);
-            }
+            reportOnce(&state, &ticksSinceStatus);
         }
-        vTaskDelayUntil(&lastWake, pdMS_TO_TICKS(REPORT_PERIOD_MS));
+        vTaskDelayUntil(&lastWake, REPORT_PERIOD_TICKS);
     }
 }
 
@@ -484,14 +538,13 @@ static void faultTask(void *pvParameters)
     PidControlState state;
 
     faultLed.begin();
-    vTaskDelay(pdMS_TO_TICKS(FAULT_START_OFFSET_MS));
     TickType_t lastWake = xTaskGetTickCount();
 
     for (;;)
     {
         if (pidControlStateRead(xStateMailbox, &state)) updateFaultLed(&state);
 
-        vTaskDelayUntil(&lastWake, pdMS_TO_TICKS(FAULT_PERIOD_MS));
+        vTaskDelayUntil(&lastWake, FAULT_PERIOD_TICKS);
     }
 }
 

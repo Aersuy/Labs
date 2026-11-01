@@ -176,4 +176,3 @@ int32_t PidController::clampIntegral(int32_t value)
 PidGains PidController::getGains() const      { return this->gains; }
 PidTerms PidController::getTerms() const      { return this->terms; }
 int16_t PidController::getSetPointDeciDeg() const { return this->setPointDeciDeg; }
-int32_t PidController::getIntegralRaw() const { return this->integralMilliPerMille; }

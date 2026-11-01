@@ -11,7 +11,7 @@
 const int16_t MILLI_PER_UNIT = 1000;
 
 // Smallest buffer formatMilliGain() accepts: "32.767" plus terminator.
-const uint8_t MILLI_TEXT_MIN_LEN = 8;
+const uint8_t MILLI_TEXT_MIN_LEN = 7;
 
 // "2.5" -> 2500, "0.05" -> 50, "20" -> 20000. Gains are never negative, so a
 // leading minus is rejected. Does not touch *out for malformed input.
