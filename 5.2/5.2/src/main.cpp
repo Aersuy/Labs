@@ -21,7 +21,7 @@ constexpr int POSITION_POT_PIN = A0;
 constexpr int MOTOR_IN1_PIN = 8;        // same wiring as lab 4.2
 constexpr int MOTOR_IN2_PIN = 7;
 constexpr int MOTOR_ENABLE_PIN = 9;     // PWM, Timer2 on the Mega
-constexpr int FAULT_LED_PIN = 12;
+constexpr int FAULT_LED_PIN = 13;
 
 // feilipu/FreeRTOS drives the AVR tick from the watchdog, so one tick is
 // portTICK_PERIOD_MS (16 ms - Atmel's "WDTO_15MS" is really 16.384 ms) and
