@@ -6,17 +6,17 @@
 #include <queue.h>
 
 #include "pidController.h"
-#include "positionScale.h"
+#include "speedScale.h"
 
 // Snapshot published by the control task and consumed by the report and fault
 // tasks through a one-slot mailbox.
 typedef struct {
-    int16_t setPointDeciDeg;
-    int16_t measuredDeciDeg;
+    int16_t setPointDeciRpm;
+    int16_t measuredDeciRpm;
     PidTerms terms;
     PidGains gains;
     int motorPercent;
-    PositionReadStatus sensorStatus;
+    SpeedReadStatus sensorStatus;
     bool isLoopEnabled;
     uint16_t sampleCount;
 } PidControlState;
@@ -29,7 +29,11 @@ typedef enum {
     PID_CMD_KD,
     PID_CMD_RESET,
     PID_CMD_LOOP_ENABLE,
-    PID_CMD_STATUS
+    PID_CMD_STATUS,
+    // Open-loop duty, for characterising the motor before any gain is tuned:
+    // it is the only way to find the real full-scale speed and the real
+    // stiction floor, and both are constants the closed loop depends on.
+    PID_CMD_DUTY
 } PidCommandType;
 
 // Tagged union: the sensor task and the command task feed the same queue, so
@@ -37,9 +41,9 @@ typedef enum {
 typedef struct {
     PidCommandType type;
     union {
-        int16_t value;          // set point in tenths, gains in thousandths,
-                                // LOOP_ENABLE as 0/1
-        PositionSample sample;  // MEASUREMENT
+        int16_t value;       // set point in tenths, gains in thousandths,
+                             // LOOP_ENABLE as 0/1, DUTY in percent
+        SpeedSample sample;  // MEASUREMENT
     } payload;
 } PidCommand;
 

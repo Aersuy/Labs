@@ -1,0 +1,8 @@
+[wokwi]
+version = 1
+firmware = '.pio\build\megaatmega1280\firmware.hex'
+elf = '.pio\build\megaatmega1280\firmware.elf'
+
+[[chip]]
+name = 'motorrig'
+binary = 'chips/motorrig.chip.wasm'

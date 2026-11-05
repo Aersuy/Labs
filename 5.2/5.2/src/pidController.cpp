@@ -5,7 +5,7 @@ static const int32_t GAIN_MILLI_SCALE = 1000;
 
 static void clearTerms(PidTerms *terms)
 {
-    terms->errorDeciDeg = 0;
+    terms->errorDeci = 0;
     terms->proportionalPerMille = 0;
     terms->integralPerMille = 0;
     terms->derivativePerMille = 0;
@@ -21,13 +21,13 @@ static bool isGainInRange(int16_t gainMilli)
 }
 
 PidController::PidController(const PidConfig &config, PidGains gains,
-                             int16_t setPointDeciDeg)
+                             int16_t setPointDeci)
 {
     this->config = config;
     this->gains = gains;
-    this->setPointDeciDeg = setPointDeciDeg;
+    this->setPointDeci = setPointDeci;
     this->integralMilliPerMille = 0;
-    this->previousMeasuredDeciDeg = 0;
+    this->previousMeasuredDeci = 0;
     this->hasPreviousMeasurement = false;
     clearTerms(&this->terms);
 }
@@ -63,46 +63,46 @@ bool PidController::setKd(int16_t kdMilli)
     return this->setGains(updated);
 }
 
-bool PidController::setSetPoint(int16_t setPointDeciDeg)
+bool PidController::setSetPoint(int16_t setPointDeci)
 {
-    if (setPointDeciDeg < this->config.setPointMin) return false;
-    if (setPointDeciDeg > this->config.setPointMax) return false;
+    if (setPointDeci < this->config.setPointMin) return false;
+    if (setPointDeci > this->config.setPointMax) return false;
 
-    this->setPointDeciDeg = setPointDeciDeg;
+    this->setPointDeci = setPointDeci;
     return true;
 }
 
 void PidController::reset()
 {
     this->integralMilliPerMille = 0;
-    this->previousMeasuredDeciDeg = 0;
+    this->previousMeasuredDeci = 0;
     this->hasPreviousMeasurement = false;
     clearTerms(&this->terms);
 }
 
-int16_t PidController::update(int16_t measuredDeciDeg)
+int16_t PidController::update(int16_t measuredDeci)
 {
-    int16_t error = (int16_t)(this->setPointDeciDeg - measuredDeciDeg);
+    int16_t error = (int16_t)(this->setPointDeci - measuredDeci);
 
-    this->terms.errorDeciDeg = error;
+    this->terms.errorDeci = error;
     this->terms.isInDeadBand = this->isWithinDeadBand(error);
 
     if (this->terms.isInDeadBand) this->holdInDeadBand();
-    else                          this->computeTerms(error, measuredDeciDeg);
+    else                          this->computeTerms(error, measuredDeci);
 
-    this->previousMeasuredDeciDeg = measuredDeciDeg;
+    this->previousMeasuredDeci = measuredDeci;
     this->hasPreviousMeasurement = true;
     return this->terms.outputPerMille;
 }
 
 
-void PidController::computeTerms(int16_t error, int16_t measuredDeciDeg)
+void PidController::computeTerms(int16_t error, int16_t measuredDeci)
 {
     this->accumulateIntegral(error);
 
     int32_t proportional = this->proportionalTerm(error);
     int32_t integral = this->integralMilliPerMille / GAIN_MILLI_SCALE;
-    int32_t derivative = this->derivativeTerm(measuredDeciDeg);
+    int32_t derivative = this->derivativeTerm(measuredDeci);
     int32_t sum = proportional + integral + derivative;
 
     this->terms.proportionalPerMille = clampPerMille(proportional);
@@ -144,11 +144,11 @@ void PidController::accumulateIntegral(int16_t error)
 // Derivative on the measurement, not on the error. Differentiating the error
 // would inject a one-sample spike of kd * deltaSetPoint / Ts straight into the
 // motor on every set-point step - the classic derivative kick.
-int32_t PidController::derivativeTerm(int16_t measuredDeciDeg) const
+int32_t PidController::derivativeTerm(int16_t measuredDeci) const
 {
     if (!this->hasPreviousMeasurement) return 0;
 
-    int16_t change = (int16_t)(measuredDeciDeg - this->previousMeasuredDeciDeg);
+    int16_t change = (int16_t)(measuredDeci - this->previousMeasuredDeci);
     return -((int32_t)this->gains.kdMilli * change) /
             (int32_t)this->config.samplePeriodMs;
 }
@@ -156,7 +156,7 @@ int32_t PidController::derivativeTerm(int16_t measuredDeciDeg) const
 bool PidController::isWithinDeadBand(int16_t error) const
 {
     int16_t magnitude = (error < 0) ? (int16_t)(-error) : error;
-    return magnitude <= this->config.deadBandDeciDeg;
+    return magnitude <= this->config.deadBandDeci;
 }
 
 int16_t PidController::clampPerMille(int32_t value)
@@ -175,4 +175,4 @@ int32_t PidController::clampIntegral(int32_t value)
 
 PidGains PidController::getGains() const      { return this->gains; }
 PidTerms PidController::getTerms() const      { return this->terms; }
-int16_t PidController::getSetPointDeciDeg() const { return this->setPointDeciDeg; }
+int16_t PidController::getSetPointDeci() const { return this->setPointDeci; }

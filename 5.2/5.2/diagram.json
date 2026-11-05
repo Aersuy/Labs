@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "author": "Vlad Raileanu",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "wokwi-arduino-mega", "id": "mega", "top": 0, "left": 0, "attrs": {} },
+    {
+      "type": "chip-motorrig",
+      "id": "rig1",
+      "top": -230,
+      "left": 160,
+      "attrs": {
+        "speed": "240",
+        "stiction": "18",
+        "tau": "0.25",
+        "load": "0"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led1",
+      "top": 140,
+      "left": 300,
+      "attrs": { "color": "red", "label": "D" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r1",
+      "top": 220,
+      "left": 230,
+      "attrs": { "value": "220" }
+    }
+  ],
+  "connections": [
+    [ "rig1:VCC", "mega:5V", "red", [ "h0" ] ],
+    [ "rig1:GND", "mega:GND.2", "black", [ "h0" ] ],
+
+    [ "rig1:IN1", "mega:8", "green", [ "h0" ] ],
+    [ "rig1:IN2", "mega:7", "blue", [ "h0" ] ],
+    [ "rig1:EN", "mega:9", "orange", [ "h0" ] ],
+    [ "rig1:OUT", "mega:2", "purple", [ "h0" ] ],
+
+    [ "mega:13", "led1:A", "magenta", [ "h0" ] ],
+    [ "led1:C", "r1:1", "magenta", [ "h0" ] ],
+    [ "r1:2", "mega:GND.3", "black", [ "h0" ] ],
+
+    [ "mega:1", "$serialMonitor:RX", "" ],
+    [ "mega:0", "$serialMonitor:TX", "" ]
+  ],
+  "serialMonitor": { "display": "terminal", "convertEol": true },
+  "dependencies": {}
+}

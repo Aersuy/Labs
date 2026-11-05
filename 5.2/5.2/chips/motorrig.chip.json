@@ -1,0 +1,11 @@
+{
+  "name": "motorrig",
+  "author": "Vlad Raileanu",
+  "pins": ["VCC", "GND", "IN1", "IN2", "EN", "OUT"],
+  "controls": [
+    { "id": "speed", "label": "Turatie max (rpm)", "type": "range", "min": 30, "max": 400, "step": 5 },
+    { "id": "stiction", "label": "Prag pornire (% duty)", "type": "range", "min": 0, "max": 60, "step": 1 },
+    { "id": "tau", "label": "Tau mecanic (s)", "type": "range", "min": 0.02, "max": 1, "step": 0.01 },
+    { "id": "load", "label": "Sarcina (rpm)", "type": "range", "min": 0, "max": 120, "step": 5 }
+  ]
+}
