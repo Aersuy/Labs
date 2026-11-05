@@ -3,6 +3,12 @@ version = 1
 firmware = '.pio\build\megaatmega1280\firmware.hex'
 elf = '.pio\build\megaatmega1280\firmware.elf'
 
+# Forwards the simulated UART to a TCP socket, so serial can be opened in a
+# real, writable terminal. The extension's own view is read-only, which makes
+# the interactive command prompt in cmdTask unusable. Connect with the
+# "Serial Monitor" extension in TCP mode, or PuTTY, on 127.0.0.1:4000.
+rfc2217ServerPort = 4000
+
 [[chip]]
 name = 'peltier'
 binary = 'chips/peltier.chip.wasm'

@@ -57,6 +57,11 @@ static QueueHandle_t xStateMailbox = NULL;
 
 // atomic no queue needed
 static volatile bool isPlotEnabled = false;
+// The control loop runs silently. Streaming telemetry on a shared UART buries
+// the prompt and interleaves with whatever is being typed, so the report task
+// stays quiet unless it is explicitly switched on for the Serial Plotter;
+// "print state" is how the state is normally inspected.
+static volatile bool isReportEnabled = false;
 
 
 static void printDeci(int16_t value)
@@ -68,15 +73,18 @@ static void printDeci(int16_t value)
 
 static void printRejectedRange(const char *name, int16_t minimum, int16_t maximum)
 {
+    uartStdioLock();
     printf("[err] %s in afara domeniului (", name);
     printDeci(minimum);
     printf(" .. ");
     printDeci(maximum);
     printf(")\n");
+    uartStdioUnlock();
 }
 
 static void printStatusLine(const ControlState *state)
 {
+    uartStdioLock();
     printf("[status] T=");
     printDeci(state->measuredDeciC);
     printf("C | SP=");
@@ -92,26 +100,32 @@ static void printStatusLine(const ControlState *state)
            controlOutputName(state->output),
            state->switchCount,
            ntcReadStatusName(state->sensorStatus));
+    uartStdioUnlock();
 }
 
 static void printPlotLine(const ControlState *state)
 {
+    uartStdioLock();
     printf("T:");
     printDeci(state->measuredDeciC);
     printf(" SP:");
     printDeci(state->setPointDeciC);
     printf(" OUT:%d\n", (int)state->output * PLOT_OUTPUT_SCALE);
+    uartStdioUnlock();
 }
 
 static void printHelp()
 {
+    uartStdioLock();
     printf("Comenzi:\n");
     printf("  sp <val>        - set point, ex. sp 25.5\n");
     printf("  hyst <val>      - histereza, ex. hyst 1.5 (min 1.0)\n");
     printf("  mode heat|cool  - sensul actionarii\n");
-    printf("  status          - raport imediat\n");
+    printf("  print state     - afiseaza starea curenta\n");
     printf("  plot on|off     - linii pentru Serial Plotter\n");
+    printf("  report on|off   - raport periodic (implicit oprit)\n");
     printf("  help            - lista de comenzi\n");
+    uartStdioUnlock();
 }
 
 static ControlState buildInitialState()
@@ -149,29 +163,47 @@ static void applyControlOutput(ControlOutput output, uint16_t *switchCount)
                                                     : relay.turnOff();
     if (!isAccepted)
     {
+        uartStdioLock();
         printf("[peltier] comutare refuzata, protectie contacte activa\n");
+        uartStdioUnlock();
         return;
     }
     if (relay.isOn() != wasOn) (*switchCount)++;
 }
 
-// Fail-safe: a reading we cannot trust forces the actuator OFF.
-static void applyFailedSample(const NtcSample *sample, ControlState *state)
+// Fail-safe: a reading we cannot trust forces the actuator OFF. The sensor is
+// sampled several times a second, so only the transition is announced -
+// repeating the message every sample would bury everything else.
+static void applyFailedSample(const NtcSample *sample, ControlState *state,
+                              bool isFirstFailure)
 {
     state->output = CONTROL_OUTPUT_OFF;
     applyControlOutput(CONTROL_OUTPUT_OFF, &state->switchCount);
+
+    if (!isFirstFailure) return;
+
+    uartStdioLock();
     printf("[senzor] citire invalida (%s), element fortat OFF\n",
            ntcReadStatusName(sample->status));
+    uartStdioUnlock();
 }
 
 static void applyMeasurement(const NtcSample *sample, ControlState *state)
 {
+    NtcReadStatus previousStatus = state->sensorStatus;
     state->sensorStatus = sample->status;
 
     if (sample->status != NTC_READ_OK)
     {
-        applyFailedSample(sample, state);
+        applyFailedSample(sample, state, previousStatus != sample->status);
         return;
+    }
+
+    if (previousStatus != NTC_READ_OK)
+    {
+        uartStdioLock();
+        printf("[senzor] citire valida, control reluat\n");
+        uartStdioUnlock();
     }
 
     state->measuredDeciC = sample->temperatureDeciC;
@@ -189,6 +221,7 @@ static void applySetPoint(int16_t setPointDeciC, ControlState *state)
         return;
     }
     refreshControllerFields(state);
+    uartStdioLock();
     printf("[control] set point nou: ");
     printDeci(state->setPointDeciC);
     printf("C, praguri ");
@@ -196,6 +229,7 @@ static void applySetPoint(int16_t setPointDeciC, ControlState *state)
     printf("..");
     printDeci(state->upperThresholdDeciC);
     printf("\n");
+    uartStdioUnlock();
 }
 
 static void applyHysteresis(int16_t hysteresisDeciC, ControlState *state)
@@ -208,9 +242,11 @@ static void applyHysteresis(int16_t hysteresisDeciC, ControlState *state)
         return;
     }
     refreshControllerFields(state);
+    uartStdioLock();
     printf("[control] histereza noua: ");
     printDeci(state->hysteresisDeciC);
     printf("C\n");
+    uartStdioUnlock();
 }
 
 static void applyMode(ControlMode mode, ControlState *state)
@@ -221,7 +257,9 @@ static void applyMode(ControlMode mode, ControlState *state)
     // The element's polarity is fixed by the wiring, so the mode only flips
     // the control law: whether the switched output is asked to close the gap
     // from below or from above.
+    uartStdioLock();
     printf("[control] mod nou: %s\n", controlModeName(state->mode));
+    uartStdioUnlock();
 }
 
 static void applyControlCommand(const ControlCommand *command, ControlState *state)
@@ -254,18 +292,28 @@ static void readLine(char *buf, uint8_t len)
         int ch = getchar();
         if (ch < 0) continue;
 
-        if (ch == '\r' || ch == '\n') { putchar('\n'); break; }
+        if (ch == '\r' || ch == '\n')
+        {
+            uartStdioLock();
+            putchar('\n');
+            uartStdioUnlock();
+            break;
+        }
 
         if ((ch == 0x7F || ch == '\b') && i > 0)
         {
             i--;
+            uartStdioLock();
             printf("\b \b");
+            uartStdioUnlock();
             continue;
         }
         if (i < len - 1 && isprint(ch))
         {
             buf[i++] = (char)tolower(ch);
+            uartStdioLock();
             putchar(ch);
+            uartStdioUnlock();
         }
     }
     buf[i] = '\0';
@@ -312,7 +360,9 @@ static bool handleDeciCommand(const char *line, const char *prefix,
     int16_t value = 0;
     if (!parseDeciCelsius(argument, &value))
     {
+        uartStdioLock();
         printf("[err] valoare invalida: \"%s\"\n", argument);
+        uartStdioUnlock();
         return true;
     }
     sendValueCommand(type, value);
@@ -334,7 +384,9 @@ static bool handleModeCommand(const char *line)
     }
     else
     {
+        uartStdioLock();
         printf("[err] mod necunoscut: \"%s\" (heat|cool)\n", argument);
+        uartStdioUnlock();
     }
     return true;
 }
@@ -348,10 +400,58 @@ static bool handlePlotCommand(const char *line)
     else if (!strcmp(argument, "off")) isPlotEnabled = false;
     else
     {
+        uartStdioLock();
         printf("[err] argument necunoscut: \"%s\" (on|off)\n", argument);
+        uartStdioUnlock();
         return true;
     }
+    uartStdioLock();
     printf("[plot] %s\n", isPlotEnabled ? "activat" : "dezactivat");
+    // The plotter draws the periodic lines, and those are off by default.
+    if (isPlotEnabled && !isReportEnabled)
+    {
+        printf("[plot] raportul periodic este oprit, scrie \"report on\"\n");
+    }
+    uartStdioUnlock();
+    return true;
+}
+
+static bool handleReportCommand(const char *line)
+{
+    if (!hasCommandPrefix(line, "report")) return false;
+
+    const char *argument = line + strlen("report") + 1;
+    if (!strcmp(argument, "on"))        isReportEnabled = true;
+    else if (!strcmp(argument, "off"))  isReportEnabled = false;
+    else
+    {
+        uartStdioLock();
+        printf("[err] argument necunoscut: \"%s\" (on|off)\n", argument);
+        uartStdioUnlock();
+        return true;
+    }
+    uartStdioLock();
+    printf("[report] %s\n", isReportEnabled ? "activat" : "dezactivat");
+    uartStdioUnlock();
+    return true;
+}
+
+static bool handlePrintCommand(const char *line)
+{
+    if (!hasCommandPrefix(line, "print")) return false;
+
+    const char *argument = line + strlen("print") + 1;
+    if (strcmp(argument, "state") != 0)
+    {
+        uartStdioLock();
+        printf("[err] argument necunoscut: \"%s\" (state)\n", argument);
+        uartStdioUnlock();
+        return true;
+    }
+
+    // Routed through the control task so the line is built from the state that
+    // task owns, instead of a copy that may already be stale.
+    sendValueCommand(CONTROL_CMD_STATUS, 0);
     return true;
 }
 
@@ -361,6 +461,8 @@ static void dispatchCommand(const char *line)
     if (handleDeciCommand(line, "hyst", CONTROL_CMD_HYSTERESIS)) return;
     if (handleModeCommand(line)) return;
     if (handlePlotCommand(line)) return;
+    if (handleReportCommand(line)) return;
+    if (handlePrintCommand(line)) return;
 
     if (!strcmp(line, "status"))
     {
@@ -372,7 +474,9 @@ static void dispatchCommand(const char *line)
         printHelp();
         return;
     }
+    uartStdioLock();
     printf("[err] comanda necunoscuta: \"%s\" (scrie help)\n", line);
+    uartStdioUnlock();
 }
 
 
@@ -418,12 +522,17 @@ static void cmdTask(void *pvParameters)
 {
     char line[CMD_BUF_LEN];
 
+    uartStdioLock();
     printf("\n=== Lab 5.1: control ON-OFF cu histereza (termistor NTC + Peltier) ===\n");
+    uartStdioUnlock();
     printHelp();
 
     for (;;)
     {
+        uartStdioLock();
         printf("> ");
+        uartStdioUnlock();
+
         readLine(line, sizeof(line));
         format(line);
 
@@ -441,7 +550,7 @@ static void reportTask(void *pvParameters)
 
     for (;;)
     {
-        if (controlStateRead(xStateMailbox, &state))
+        if (isReportEnabled && controlStateRead(xStateMailbox, &state))
         {
             if (isPlotEnabled) printPlotLine(&state);
             else               printStatusLine(&state);

@@ -36,6 +36,20 @@ void uartStdioInit()
 static FILE rtosUartStream;
 static QueueHandle_t xUartTxQueue = NULL;
 static QueueHandle_t xUartRxQueue = NULL;
+static SemaphoreHandle_t xStdoutMutex = NULL;
+
+// Recursive so that a printing helper may call another one. A FreeRTOS mutex
+// also carries priority inheritance, which matters here: the command task runs
+// above the report task, and would otherwise wait on it at its own priority.
+void uartStdioLock()
+{
+    if (xStdoutMutex != NULL) xSemaphoreTakeRecursive(xStdoutMutex, portMAX_DELAY);
+}
+
+void uartStdioUnlock()
+{
+    if (xStdoutMutex != NULL) xSemaphoreGiveRecursive(xStdoutMutex);
+}
 
 // The output task that reads from the Tx Queue
 // and sends to the Rx queue
@@ -68,6 +82,7 @@ void rtosUartStdioInit(int baud,
 
   xUartTxQueue = xQueueCreate(queueLength,sizeof(char));
   xUartRxQueue = xQueueCreate(queueLength,sizeof(char));
+  xStdoutMutex = xSemaphoreCreateRecursiveMutex();
 
   fdev_setup_stream(&rtosUartStream, rtosUartPutchar, rtosUartGetchar, _FDEV_SETUP_RW);
   stdout = &rtosUartStream;

@@ -43,7 +43,6 @@ static const float PLATE_MAX_C = 80.0f;
 
 static const uint32_t TICK_MICROS = 50000;   // 20 Hz model update
 static const float TICK_SECONDS = 0.05f;
-static const uint32_t LOG_EVERY_TICKS = 20;  // one console line per second
 
 typedef struct {
     pin_t pwrPin;
@@ -55,7 +54,7 @@ typedef struct {
 
     float plateC;
     bool isPlateSeeded;
-    uint32_t tickCount;
+    bool wasPowered;
 } chip_state_t;
 
 static float clampFloat(float value, float minimum, float maximum)
@@ -109,12 +108,13 @@ static void chip_tick(void *user_data)
 
     pin_dac_write(chip->outPin, dividerVoltsFor(chip->plateC));
 
-    if (++chip->tickCount >= LOG_EVERY_TICKS)
-    {
-        chip->tickCount = 0;
-        printf("[peltier] amb=%.1fC plate=%.1fC element=%s\n",
-               ambientC, chip->plateC, isPowered ? "ON" : "off");
-    }
+    // Deliberately silent. The chip shares a console with the firmware, and
+    // nothing on the firmware side can switch its output off, so any logging
+    // here would stream past the prompt no matter what "report off" says.
+    // The plate and the element state are both visible through "print state":
+    // the plate is what the controller measures as T, and the element follows
+    // "iesire". Re-enable a line here only while debugging the model itself.
+    chip->wasPowered = isPowered;
 }
 
 void chip_init(void)
@@ -130,7 +130,7 @@ void chip_init(void)
     chip->rateAttr = attr_init_float("rate", 0.5f);
 
     chip->isPlateSeeded = false;
-    chip->tickCount = 0;
+    chip->wasPowered = false;
 
     const timer_config_t timerConfig = {
         .user_data = chip,
