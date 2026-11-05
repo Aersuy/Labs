@@ -5,21 +5,20 @@
 #include <Arduino_FreeRTOS.h>
 #include <queue.h>
 
-#include "dhtSensor.h"
+#include "ntcSensor.h"
 #include "hysteresisController.h"
 
 // Snapshot published by the control task and consumed by the report and alarm
 // tasks through a one-slot mailbox.
 typedef struct {
     int16_t measuredDeciC;
-    int16_t humidityDeciPercent;
     int16_t setPointDeciC;
     int16_t hysteresisDeciC;
     int16_t lowerThresholdDeciC;
     int16_t upperThresholdDeciC;
     ControlOutput output;
     ControlMode mode;
-    DhtReadStatus sensorStatus;
+    NtcReadStatus sensorStatus;
     uint16_t switchCount;
 } ControlState;
 
@@ -37,7 +36,7 @@ typedef struct {
     ControlCommandType type;
     union {
         int16_t value;      // SET_POINT / HYSTERESIS in tenths, MODE as ControlMode
-        DhtSample sample;   // MEASUREMENT
+        NtcSample sample;   // MEASUREMENT
     } payload;
 } ControlCommand;
 

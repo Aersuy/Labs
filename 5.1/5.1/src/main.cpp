@@ -9,14 +9,18 @@
 #include "uartStdio.h"
 #include "binaryRelay.h"
 #include "ledClass.h"
-#include "dhtSensor.h"
+#include "ntcSensor.h"
 #include "hysteresisController.h"
 #include "deciTemperature.h"
 #include "controlState.h"
 
-constexpr int DHT_DATA_PIN = 2;
+constexpr int NTC_ADC_PIN = A0;
 constexpr int RELAY_PIN = 7;
-constexpr uint8_t RELAY_ACTIVE_LEVEL = LOW;
+// Two inversions that cancel. The KY-019 module drives its coil on a LOW at S,
+// and the element hangs off the NC contact, which conducts only while that
+// coil is released. So a HIGH on D7 releases the coil, closes COM-NC and powers
+// the Peltier: active HIGH is what makes turnOn() mean "element powered".
+constexpr uint8_t RELAY_ACTIVE_LEVEL = HIGH;
 constexpr unsigned long RELAY_MIN_SWITCH_INTERVAL_MS = 1000;
 constexpr int ALARM_LED_PIN = 12;
 
@@ -24,7 +28,7 @@ constexpr int16_t DEFAULT_SET_POINT_DECI_C = 250;      // 25.0 C
 constexpr int16_t DEFAULT_HYSTERESIS_DECI_C = 10;      // 1.0 C
 constexpr int16_t DEVIATION_ALARM_DECI_C = 30;         // 3.0 C
 
-constexpr uint16_t SENSOR_PERIOD_MS = DhtSensor::MIN_READ_INTERVAL_MS;
+constexpr uint16_t SENSOR_PERIOD_MS = NtcSensor::SAMPLE_INTERVAL_MS;
 constexpr uint16_t REPORT_PERIOD_MS = 500;
 constexpr uint16_t ALARM_PERIOD_MS = 200;
 
@@ -41,7 +45,7 @@ constexpr int PLOT_OUTPUT_SCALE = 10;
 constexpr int UART_BAUD = 9600;
 constexpr UBaseType_t UART_QUEUE_LEN = 64;
 
-static DhtSensor dht(DHT_DATA_PIN);
+static NtcSensor ntc(NTC_ADC_PIN);
 static Relay relay(RELAY_PIN, RELAY_ACTIVE_LEVEL, RELAY_MIN_SWITCH_INTERVAL_MS);
 static Led alarmLed(ALARM_LED_PIN);
 static HysteresisController controller(DEFAULT_SET_POINT_DECI_C,
@@ -75,9 +79,7 @@ static void printStatusLine(const ControlState *state)
 {
     printf("[status] T=");
     printDeci(state->measuredDeciC);
-    printf("C RH=");
-    printDeci(state->humidityDeciPercent);
-    printf("%% | SP=");
+    printf("C | SP=");
     printDeci(state->setPointDeciC);
     printf("C hyst=");
     printDeci(state->hysteresisDeciC);
@@ -89,7 +91,7 @@ static void printStatusLine(const ControlState *state)
            controlModeName(state->mode),
            controlOutputName(state->output),
            state->switchCount,
-           dhtReadStatusName(state->sensorStatus));
+           ntcReadStatusName(state->sensorStatus));
 }
 
 static void printPlotLine(const ControlState *state)
@@ -117,14 +119,13 @@ static ControlState buildInitialState()
     ControlState state;
 
     state.measuredDeciC = 0;
-    state.humidityDeciPercent = 0;
     state.setPointDeciC = controller.getSetPointDeciC();
     state.hysteresisDeciC = controller.getHysteresisDeciC();
     state.lowerThresholdDeciC = controller.lowerThresholdDeciC();
     state.upperThresholdDeciC = controller.upperThresholdDeciC();
     state.output = controller.getOutput();
     state.mode = controller.getMode();
-    state.sensorStatus = DHT_READ_FAILED;   // nothing measured yet
+    state.sensorStatus = NTC_READ_FAILED;   // nothing measured yet
     state.switchCount = 0;
     return state;
 }
@@ -139,8 +140,8 @@ static void refreshControllerFields(ControlState *state)
 }
 
 // Applies the decision to the hardware and counts the transitions that really
-// reached the relay. A refusal comes from the contact-protection interval and
-// is reported instead of being swallowed.
+// reached the element. A refusal comes from the contact-protection interval
+// and is reported instead of being swallowed.
 static void applyControlOutput(ControlOutput output, uint16_t *switchCount)
 {
     bool wasOn = relay.isOn();
@@ -148,33 +149,32 @@ static void applyControlOutput(ControlOutput output, uint16_t *switchCount)
                                                     : relay.turnOff();
     if (!isAccepted)
     {
-        printf("[releu] comutare refuzata, protectie contacte activa\n");
+        printf("[peltier] comutare refuzata, protectie contacte activa\n");
         return;
     }
     if (relay.isOn() != wasOn) (*switchCount)++;
 }
 
 // Fail-safe: a reading we cannot trust forces the actuator OFF.
-static void applyFailedSample(const DhtSample *sample, ControlState *state)
+static void applyFailedSample(const NtcSample *sample, ControlState *state)
 {
     state->output = CONTROL_OUTPUT_OFF;
     applyControlOutput(CONTROL_OUTPUT_OFF, &state->switchCount);
-    printf("[senzor] citire invalida (%s), releu fortat OFF\n",
-           dhtReadStatusName(sample->status));
+    printf("[senzor] citire invalida (%s), element fortat OFF\n",
+           ntcReadStatusName(sample->status));
 }
 
-static void applyMeasurement(const DhtSample *sample, ControlState *state)
+static void applyMeasurement(const NtcSample *sample, ControlState *state)
 {
     state->sensorStatus = sample->status;
 
-    if (sample->status != DHT_READ_OK)
+    if (sample->status != NTC_READ_OK)
     {
         applyFailedSample(sample, state);
         return;
     }
 
     state->measuredDeciC = sample->temperatureDeciC;
-    state->humidityDeciPercent = sample->humidityDeciPercent;
     state->output = controller.update(sample->temperatureDeciC);
     applyControlOutput(state->output, &state->switchCount);
 }
@@ -217,6 +217,10 @@ static void applyMode(ControlMode mode, ControlState *state)
 {
     controller.setMode(mode);
     refreshControllerFields(state);
+
+    // The element's polarity is fixed by the wiring, so the mode only flips
+    // the control law: whether the switched output is asked to close the gap
+    // from below or from above.
     printf("[control] mod nou: %s\n", controlModeName(state->mode));
 }
 
@@ -373,19 +377,19 @@ static void dispatchCommand(const char *line)
 
 
 
-// Owns the sensor: the only task that talks to the DHT11.
+// Owns the sensor: the only task that talks to the thermistor.
 static void sensorTask(void *pvParameters)
 {
     ControlCommand command;
     command.type = CONTROL_CMD_MEASUREMENT;
 
-    dht.begin();
+    ntc.begin();
     vTaskDelay(pdMS_TO_TICKS(SENSOR_START_OFFSET_MS));
     TickType_t lastWake = xTaskGetTickCount();
 
     for (;;)
     {
-        command.payload.sample = dht.read();
+        command.payload.sample = ntc.read();
         xQueueSend(xControlQueue, &command, pdMS_TO_TICKS(QUEUE_SEND_TIMEOUT_MS));
 
         vTaskDelayUntil(&lastWake, pdMS_TO_TICKS(SENSOR_PERIOD_MS));
@@ -414,7 +418,7 @@ static void cmdTask(void *pvParameters)
 {
     char line[CMD_BUF_LEN];
 
-    printf("\n=== Lab 5.1: control ON-OFF cu histereza (DHT11 + releu) ===\n");
+    printf("\n=== Lab 5.1: control ON-OFF cu histereza (termistor NTC + Peltier) ===\n");
     printHelp();
 
     for (;;)
@@ -450,7 +454,7 @@ static void reportTask(void *pvParameters)
 // measurement sits too far from the set point, off otherwise.
 static void updateAlarmLed(const ControlState *state)
 {
-    if (state->sensorStatus != DHT_READ_OK)
+    if (state->sensorStatus != NTC_READ_OK)
     {
         alarmLed.turnOn();
         return;

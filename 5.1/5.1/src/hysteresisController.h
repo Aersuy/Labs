@@ -47,11 +47,11 @@ class HysteresisController {
     int16_t upperThresholdDeciC() const;
     int16_t deviationDeciC(int16_t measuredDeciC) const;
 
-    // DHT11 covers 0..50 C.
+    // Working range of the thermistor channel: 0..50 C.
     static const int16_t SET_POINT_MIN_DECI_C = 0;
     static const int16_t SET_POINT_MAX_DECI_C = 500;
-    // DHT11 resolves whole degrees, so a band narrower than 1.0 C would make
-    // the relay switch on every single reading.
+    // A band narrower than 1.0 C would sit inside the noise of the ADC
+    // reading and make the actuator switch on nearly every sample.
     static const int16_t HYSTERESIS_MIN_DECI_C = 10;
     static const int16_t HYSTERESIS_MAX_DECI_C = 100;
 
