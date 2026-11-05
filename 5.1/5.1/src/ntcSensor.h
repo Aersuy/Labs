@@ -29,8 +29,11 @@ class NtcSensor {
     // An NTC has no datasheet refresh limit, unlike the DHT11 this replaced,
     // so the loop can run fast enough to make the hysteresis band visible.
     static const uint16_t SAMPLE_INTERVAL_MS = 200;
-    static const int16_t TEMPERATURE_MIN_DECI_C = 0;
-    static const int16_t TEMPERATURE_MAX_DECI_C = 500;
+    // Must span the whole range the plate can reach, otherwise a sub-zero
+    // set point reads as OUT_OF_RANGE and the fail-safe cuts the element off
+    // exactly when it is doing its job. Matches the plate clamp in the chip.
+    static const int16_t TEMPERATURE_MIN_DECI_C = -100;   // -10.0 C
+    static const int16_t TEMPERATURE_MAX_DECI_C = 500;    //  50.0 C
 
     private:
     int memberPin;

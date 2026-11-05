@@ -19,7 +19,11 @@ void Relay::begin()
    pinMode(this->memberPin, OUTPUT);
    this->write(false);
    this->state = false;
-   this->lastSwitchTime = millis();
+   // Back-date the stamp by a full interval: the guard exists to space out
+   // consecutive switches, and no switch has happened yet, so the first one
+   // must not be made to wait. Unsigned arithmetic wraps correctly even when
+   // millis() is still smaller than the interval.
+   this->lastSwitchTime = millis() - this->minSwitchInterval;
 }
 
 // actual interaction with the board

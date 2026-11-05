@@ -4,7 +4,7 @@
   "pins": ["VCC", "GND", "PWR", "OUT"],
   "controls": [
     { "id": "ambient", "label": "Ambient (C)", "type": "range", "min": 0, "max": 40, "step": 0.5 },
-    { "id": "tau", "label": "Tau (s)", "type": "range", "min": 1, "max": 30, "step": 1 },
+    { "id": "tau", "label": "Tau (s)", "type": "range", "min": 1, "max": 60, "step": 1 },
     { "id": "rate", "label": "Rate (C/s)", "type": "range", "min": -5, "max": 5, "step": 0.1 }
   ]
 }

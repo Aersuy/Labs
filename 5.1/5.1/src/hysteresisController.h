@@ -47,9 +47,10 @@ class HysteresisController {
     int16_t upperThresholdDeciC() const;
     int16_t deviationDeciC(int16_t measuredDeciC) const;
 
-    // Working range of the thermistor channel: 0..50 C.
-    static const int16_t SET_POINT_MIN_DECI_C = 0;
-    static const int16_t SET_POINT_MAX_DECI_C = 500;
+    // Refrigeration band: the element is a Peltier, so the plate is held
+    // around freezing rather than above room temperature.
+    static const int16_t SET_POINT_MIN_DECI_C = -25;   // -2.5 C
+    static const int16_t SET_POINT_MAX_DECI_C = 25;    // +2.5 C
     // A band narrower than 1.0 C would sit inside the noise of the ADC
     // reading and make the actuator switch on nearly every sample.
     static const int16_t HYSTERESIS_MIN_DECI_C = 10;

@@ -126,8 +126,10 @@ void chip_init(void)
     chip->outPin = pin_init("OUT", ANALOG);
 
     chip->ambientAttr = attr_init_float("ambient", 24.0f);
-    chip->tauAttr = attr_init_float("tau", 20.0f);
-    chip->rateAttr = attr_init_float("rate", 0.5f);
+    chip->tauAttr = attr_init_float("tau", 40.0f);
+    // Negative: this element cools. A slower plate (tau 40) keeps every
+    // ON and OFF dwell clear of the relay's 1 s contact-protection interval.
+    chip->rateAttr = attr_init_float("rate", -0.8f);
 
     chip->isPlateSeeded = false;
     chip->wasPowered = false;

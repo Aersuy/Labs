@@ -16,7 +16,7 @@
       "id": "peltier1",
       "top": -200,
       "left": 160,
-      "attrs": { "ambient": "24", "tau": "20", "rate": "0.5" }
+      "attrs": { "ambient": "24", "tau": "40", "rate": "-0.8" }
     },
     {
       "type": "wokwi-led",
