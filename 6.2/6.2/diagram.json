@@ -1,0 +1,106 @@
+{
+  "version": 1,
+  "author": "Vlad Raileanu",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "wokwi-arduino-uno", "id": "uno", "top": 100, "left": 0, "attrs": {} },
+
+    {
+      "type": "wokwi-led",
+      "id": "eastRed",
+      "top": -60,
+      "left": 300,
+      "attrs": { "color": "red", "label": "EST R" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "eastYellow",
+      "top": -60,
+      "left": 360,
+      "attrs": { "color": "yellow", "label": "EST G" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "eastGreen",
+      "top": -60,
+      "left": 420,
+      "attrs": { "color": "green", "label": "EST V" }
+    },
+
+    {
+      "type": "wokwi-led",
+      "id": "northRed",
+      "top": 120,
+      "left": 300,
+      "attrs": { "color": "red", "label": "NORD R" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "northYellow",
+      "top": 120,
+      "left": 360,
+      "attrs": { "color": "yellow", "label": "NORD G" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "northGreen",
+      "top": 120,
+      "left": 420,
+      "attrs": { "color": "green", "label": "NORD V" }
+    },
+
+    { "type": "wokwi-resistor", "id": "r1", "top": 20, "left": 290, "attrs": { "value": "220" } },
+    { "type": "wokwi-resistor", "id": "r2", "top": 50, "left": 290, "attrs": { "value": "220" } },
+    { "type": "wokwi-resistor", "id": "r3", "top": 80, "left": 290, "attrs": { "value": "220" } },
+    { "type": "wokwi-resistor", "id": "r4", "top": 200, "left": 290, "attrs": { "value": "220" } },
+    { "type": "wokwi-resistor", "id": "r5", "top": 230, "left": 290, "attrs": { "value": "220" } },
+    { "type": "wokwi-resistor", "id": "r6", "top": 260, "left": 290, "attrs": { "value": "220" } },
+
+    {
+      "type": "wokwi-pushbutton",
+      "id": "btnNorth",
+      "top": 330,
+      "left": 20,
+      "attrs": { "color": "green", "label": "CERERE NORD", "bounce": "1" }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "btnNight",
+      "top": 400,
+      "left": 20,
+      "attrs": { "color": "blue", "label": "MOD NOAPTE", "bounce": "1" }
+    }
+  ],
+  "connections": [
+    [ "uno:2", "eastRed:A", "red", [ "h0" ] ],
+    [ "uno:3", "eastYellow:A", "gold", [ "h0" ] ],
+    [ "uno:4", "eastGreen:A", "green", [ "h0" ] ],
+    [ "uno:5", "northRed:A", "red", [ "h0" ] ],
+    [ "uno:6", "northYellow:A", "gold", [ "h0" ] ],
+    [ "uno:7", "northGreen:A", "green", [ "h0" ] ],
+
+    [ "eastRed:C", "r1:1", "black", [ "h0" ] ],
+    [ "eastYellow:C", "r2:1", "black", [ "h0" ] ],
+    [ "eastGreen:C", "r3:1", "black", [ "h0" ] ],
+    [ "northRed:C", "r4:1", "black", [ "h0" ] ],
+    [ "northYellow:C", "r5:1", "black", [ "h0" ] ],
+    [ "northGreen:C", "r6:1", "black", [ "h0" ] ],
+
+    [ "r1:2", "uno:GND.1", "black", [ "h0" ] ],
+    [ "r2:2", "uno:GND.1", "black", [ "h0" ] ],
+    [ "r3:2", "uno:GND.1", "black", [ "h0" ] ],
+    [ "r4:2", "uno:GND.2", "black", [ "h0" ] ],
+    [ "r5:2", "uno:GND.2", "black", [ "h0" ] ],
+    [ "r6:2", "uno:GND.2", "black", [ "h0" ] ],
+
+    [ "btnNorth:1.l", "uno:8", "green", [ "h0" ] ],
+    [ "btnNorth:2.l", "uno:GND.3", "black", [ "h0" ] ],
+    [ "btnNight:1.l", "uno:9", "blue", [ "h0" ] ],
+    [ "btnNight:2.l", "uno:GND.3", "black", [ "h0" ] ],
+
+    [ "uno:1", "$serialMonitor:RX", "" ],
+    [ "uno:0", "$serialMonitor:TX", "" ]
+  ],
+  "serialMonitor": { "display": "terminal", "convertEol": true },
+  "dependencies": {}
+}
