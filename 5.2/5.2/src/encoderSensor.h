@@ -5,6 +5,15 @@
 
 #include "speedScale.h"
 
+// Raw state of the input, for the console probe. Nothing in the control path
+// reads this: it exists to tell a sensor that produces no pulses apart from
+// an interrupt that never fires, which the speed alone cannot distinguish.
+typedef struct {
+    uint16_t rawCount;
+    uint32_t sinceLastEdgeMicros;
+    bool isLineHigh;
+} EncoderDiagnostics;
+
 // The only module that touches the interrupt. All conversion lives in
 // speedScale, so the maths stays deterministic and testable on the host.
 //
@@ -26,6 +35,11 @@ class EncoderSensor {
     // it are a pair, and sampling them separately tears the measurement
     // whenever an edge lands between the two reads.
     EncoderDelta read();
+
+    // Read-only, and deliberately does not touch the sampling state: the
+    // command task can call it while the sensor task keeps sampling without
+    // stealing a pulse from the measurement.
+    EncoderDiagnostics diagnose() const;
 
     // Faster than this is not a pulse but brush noise coupling into the
     // sensor line: 1 ms between edges is 3000 RPM at 20 pulses per

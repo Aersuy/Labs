@@ -22,7 +22,8 @@
 // those are 2, 3, 18, 19, 20 and 21; pin 6 - where the schematic first put it
 // - has no external interrupt and no pin-change interrupt either, since those
 // cover ports B, J and K only. Polling a ~100 Hz pulse train from a task on a
-// 16 ms tick would alias, so the sensor moves to 2 (INT0).
+// 16 ms tick would alias, so the sensor moves to 2 - INT4 on the Mega, not
+// INT0 as on the Uno; digitalPinToInterrupt() handles the mapping either way.
 constexpr int ENCODER_PIN = 2;
 constexpr int MOTOR_IN1_PIN = 8;        // same wiring as lab 4.2
 constexpr int MOTOR_IN2_PIN = 7;
@@ -169,6 +170,19 @@ static void printHelp()
     printf("  plot on|off  - linii pentru Arduino Serial Plotter\n");
     printf("  status       - raport imediat\n");
     printf("  help         - lista de comenzi\n");
+}
+
+// Bypasses the control queue on purpose: this probe reports the pin, not the
+// controller, and has to keep working when the loop is exactly what is broken.
+static void printEncoderProbe()
+{
+    EncoderDiagnostics probe = speedSensor.diagnose();
+
+    printf("[enc] D%d nivel=%s impulsuri=%u ultimul front acum %lu ms\n",
+           ENCODER_PIN,
+           probe.isLineHigh ? "HIGH" : "LOW",
+           probe.rawCount,
+           probe.sinceLastEdgeMicros / 1000UL);
 }
 
 static PidControlState buildInitialState()
@@ -493,6 +507,11 @@ static bool handleKeywordCommand(const char *line)
     if (!strcmp(line, "run"))
     {
         submitCommand(PID_CMD_LOOP_ENABLE, 1);
+        return true;
+    }
+    if (!strcmp(line, "enc"))
+    {
+        printEncoderProbe();
         return true;
     }
     if (!strcmp(line, "help"))

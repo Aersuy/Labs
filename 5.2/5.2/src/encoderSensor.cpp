@@ -43,6 +43,24 @@ void EncoderSensor::begin()
     attachInterrupt(digitalPinToInterrupt(this->pin), EncoderSensor::handleEdge, RISING);
 }
 
+EncoderDiagnostics EncoderSensor::diagnose() const
+{
+    uint16_t count;
+    uint32_t edgeMicros;
+
+    taskENTER_CRITICAL();
+    count = EncoderSensor::pulseCount;
+    edgeMicros = EncoderSensor::lastEdgeMicros;
+    taskEXIT_CRITICAL();
+
+    EncoderDiagnostics diagnostics;
+
+    diagnostics.rawCount = count;
+    diagnostics.sinceLastEdgeMicros = micros() - edgeMicros;
+    diagnostics.isLineHigh = digitalRead(this->pin) == HIGH;
+    return diagnostics;
+}
+
 EncoderDelta EncoderSensor::read()
 {
     uint16_t count;
