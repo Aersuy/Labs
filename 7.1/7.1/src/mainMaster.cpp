@@ -67,24 +67,20 @@ static void queryTask(void *pvParameters)
     }
 }
 
-static void reportReading(uint8_t sensorIndex, const DistanceReading *reading)
+static void reportReading(const DistanceReading *reading)
 {
     if (reading->status == READING_OK)
     {
-        printf_P(PSTR("S%u=%u mm  "), sensorIndex + 1, reading->distanceMm);
+        printf_P(PSTR("%u mm\n"), reading->distanceMm);
         return;
     }
-    printf_P(PSTR("S%u=%s  "), sensorIndex + 1, readingStatusName(reading->status));
+    printf_P(PSTR("%s\n"), readingStatusName(reading->status));
 }
 
-static void reportReadings(const DistanceReport *report)
+static void reportDistance(const DistanceReport *report)
 {
     printf_P(PSTR("[master] seq=%u  "), report->sequence);
-    for (uint8_t i = 0; i < report->sensorCount; i++)
-    {
-        reportReading(i, &report->readings[i]);
-    }
-    printf_P(PSTR("\n"));
+    reportReading(&report->reading);
 }
 
 // Un cadru cu PAYLOAD gol este raspunsul sclavului la o comanda necunoscuta,
@@ -114,7 +110,7 @@ static void reportUpdate(const MasterUpdate *update)
         reportInvalidPayload(update);
         return;
     }
-    reportReadings(&update->report);
+    reportDistance(&update->report);
 }
 
 // Deține afisarea. Pentru varianta cu LCD se schimba doar fluxul: Lcd din
